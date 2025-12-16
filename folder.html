@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Folder Management App</title>
+  <!-- Include FontAwesome for folder icon -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f4f4f4;
+    }
+
+    .container {
+      text-align: center;
+      width: 70%;
+      padding: 20px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 10px 20px;
+      margin-top: 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    input[type="file"] {
+      margin-top: 20px;
+    }
+
+    .folders-list {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 20px;
+    }
+
+    .folder, .file {
+      background: #f8f8f8;
+      border: 1px solid #ccc;
+      padding: 20px;
+      margin: 10px;
+      width: 150px;
+      text-align: center;
+      border-radius: 5px;
+      box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+    }
+
+    .folder:hover, .file:hover {
+      background-color: #e8e8e8;
+      transform: scale(1.05);
+    }
+
+    .folder-icon {
+      font-size: 40px;
+      margin-bottom: 10px;
+      color: #f4c542;
+    }
+
+    .folder-name, .file-name {
+      font-size: 16px;
+      font-weight: bold;
+      color: #333;
+      cursor: pointer;
+    }
+
+    #message {
+      margin-top: 20px;
+      font-size: 16px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    input[type="text"] {
+      border: none;
+      background: transparent;
+      font-size: 16px;
+      font-weight: bold;
+      color: #333;
+      text-align: center;
+      outline: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Folder Management App</h1>
+    <div class="folders-list">
+      <!-- List of folders will be populated here -->
+    </div>
+    <button id="create-folder-btn">Create New Folder</button>
+    <input type="file" id="upload-file-btn" />
+    <div id="message"></div>
+  </div>
+
+  <script>
+    // Sample folder structure (in-memory)
+    const fileSystem = {
+      root: {
+        type: 'folder',
+        name: 'root',
+        contents: [],
+      }
+    };
+
+    let currentFolder = fileSystem.root; // Initially set to root folder
+
+    // Get references to UI elements
+    const createFolderBtn = document.getElementById('create-folder-btn');
+    const uploadFileBtn = document.getElementById('upload-file-btn');
+    const foldersList = document.querySelector('.folders-list');
+    const messageDiv = document.getElementById('message');
+
+    // Function to display message
+    function displayMessage(message) {
+      messageDiv.textContent = message;
+    }
+
+    // Function to render folders and files
+    function renderFolderContents() {
+      foldersList.innerHTML = ''; // Clear the list
+
+      currentFolder.contents.forEach(item => {
+        const itemDiv = document.createElement('div');
+        itemDiv.classList.add(item.type);
+
+        // Handle folder or file
+        if (item.type === 'folder') {
+          itemDiv.innerHTML = `
+            <i class="fas fa-folder folder-icon"></i>
+            <div class="folder-name" contenteditable="true">${item.name}</div>
+          `;
+          itemDiv.querySelector('.folder-name').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const newName = prompt('Enter new folder name:', item.name);
+            if (newName) {
+              item.name = newName;
+              renderFolderContents();
+            }
+          });
+          itemDiv.addEventListener('click', () => {
+            currentFolder = item;
+            renderFolderContents(); // Show the contents of the clicked folder
+          });
+        } else {
+          itemDiv.innerHTML = `
+            <i class="fas fa-file file-icon"></i>
+            <div class="file-name" contenteditable="true">${item.name}</div>
+          `;
+          itemDiv.querySelector('.file-name').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const newName = prompt('Enter new file name:', item.name);
+            if (newName) {
+              item.name = newName;
+              renderFolderContents();
+            }
+          });
+        }
+
+        foldersList.appendChild(itemDiv);
+      });
+    }
+
+    // Create folder
+    createFolderBtn.addEventListener('click', () => {
+      const folderName = prompt('Enter folder name:');
+      if (folderName) {
+        const newFolder = {
+          type: 'folder',
+          name: folderName,
+          contents: [],
+        };
+        currentFolder.contents.push(newFolder);
+        renderFolderContents(); // Re-render after adding the new folder
+        displayMessage(`Folder "${folderName}" created successfully!`);
+      }
+    });
+
+    // Handle file upload
+    uploadFileBtn.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      const fileName = file.name;
+      const newFile = {
+        type: 'file',
+        name: fileName,
+      };
+      currentFolder.contents.push(newFile);
+      renderFolderContents(); // Re-render after adding the new file
+      displayMessage(`File "${fileName}" uploaded successfully!`);
+    });
+
+    // Initial render of the root folder
+    renderFolderContents();
+  </script>
+</body>
+</html>

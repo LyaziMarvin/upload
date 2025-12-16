@@ -1,0 +1,89 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Upload Family Document</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body { background-color: #eaf4fc; }
+    .sidebar {
+      background-color: #1a3d5d;
+      color: white;
+      height: 100vh;
+      padding: 20px;
+    }
+    .sidebar a {
+      display: block;
+      color: white;
+      text-decoration: none;
+      margin: 10px 0;
+    }
+    .sidebar a:hover { text-decoration: underline; }
+    .main-content { padding: 20px; }
+    .result-field {
+      background: #f8f8f8;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 0.8rem;
+      margin-bottom: 1rem;
+    }
+    img {
+      max-width: 150px;
+      border-radius: 8px;
+      margin-top: 6px;
+    }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-3 sidebar">
+        <h5>Jones Family Circle</h5>
+        <a href="dashboard.html">🏠 Dashboard</a>
+        <a href="upload.html">📤 Upload</a>
+        <a href="record.html?id=1">📁 Records</a>
+        <a href="#">📚 Heritage</a>
+        <a href="#">🚪 Logout</a>
+      </div>
+      <div class="col-md-9 main-content">
+        <h2>Upload Family Documents & Photos</h2>
+        <form id="uploadForm">
+          <label>Select a Document:
+            <input type="file" name="docx" accept=".docx,.pdf" required />
+          </label>
+          <br />
+          <label>Upload Photos (optional):
+            <input type="file" name="photos" accept=".jpg,.jpeg,.png,.gif" multiple />
+          </label>
+          <br />
+          <button type="submit" class="btn btn-primary mt-3">Upload</button>
+          <button type="button" id="viewRecords" class="btn btn-secondary mt-3">🔍 View Saved Records</button>
+        </form>
+        <div id="result"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const form = document.getElementById("uploadForm");
+    const resultDiv = document.getElementById("result");
+    const viewRecordsBtn = document.getElementById("viewRecords");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      resultDiv.innerHTML = "⏳ Processing...";
+      try {
+        resultDiv.innerHTML = "<p class='text-success'>✅ Dummy upload complete. (Server logic not implemented)</p>";
+      } catch (err) {
+        resultDiv.innerHTML = `<p class="error">❌ Network Error: ${err.message}</p>`;
+      }
+    });
+
+    viewRecordsBtn.addEventListener("click", () => {
+      window.location.href = "record22.html?id=1";
+    });
+  </script>
+</body>
+</html>

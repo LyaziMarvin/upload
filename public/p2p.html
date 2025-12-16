@@ -1,0 +1,436 @@
+<!-- public/p2p.html-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Family Circle</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <style>
+    body {
+      background-color: #eaf4fc;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .sidebar {
+      background-color: #1a3d5d;
+      color: white;
+      padding: 20px;
+      height: 100vh;
+      width: 220px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      overflow-y: auto;
+    }
+    .side-nav {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .side-nav .link,
+    .side-nav .sublink {
+      display: block;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+    }
+    .side-nav .link:hover,
+    .side-nav .sublink:hover {
+      color: #eaf4fc;
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .side-nav .group-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #ffffff;
+      padding: 10px 0;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+      user-select: none;
+      text-decoration: none;
+    }
+    .side-nav .chevron {
+      transition: transform 0.2s ease;
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+    .side-nav .subgroup {
+      padding-left: 10px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .logout-wrap {
+      margin-top: 24px;
+      border-top: 1px solid rgba(255, 255, 255, 0.25);
+      padding-top: 16px;
+    }
+    .logout-btn {
+      display: block;
+      width: 100%;
+      color: #fff;
+      text-decoration: none;
+      text-align: left;
+      padding: 10px 0;
+      border: 1px solid rgba(255,255,255,0.35);
+      border-radius: 6px;
+    }
+    .logout-btn:hover {
+      background: rgba(255,255,255,0.08);
+    }
+
+    .main-panel {
+      margin-left: 220px;
+      padding: 30px;
+    }
+    .header {
+      background-color: #205081;
+      color: white;
+      padding: 14px 26px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .hidden {
+      display: none;
+    }
+    .section-white {
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .hint {
+      font-size: 0.9rem;
+      color: #6c757d;
+    }
+    .badge-pill {
+      border-radius: 14px;
+    }
+
+    #filesLog {
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      padding: 10px;
+      height: 260px;
+      overflow: auto;
+    }
+    .msg {
+      padding: 4px 6px;
+      border-bottom: 1px dashed #eee;
+      cursor: pointer;
+    }
+    .msg:last-child {
+      border-bottom: 0;
+    }
+
+    .inline-note {
+      background: #fff9e6;
+      border: 1px solid #ffe08a;
+      color: #6b5b00;
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .log {
+      background:#fff;
+      border:1px solid #e5e5e5;
+      padding:8px;
+      border-radius:8px;
+      max-height:220px;
+      overflow:auto;
+    }
+
+    .active-group {
+  background: #d6ecff !important;
+  border-left: 4px solid #0d6efd;
+}
+
+.active-group {
+  background: #d6ecff !important;
+  border-left: 4px solid #0d6efd;
+}
+
+
+  </style>
+</head>
+<body>
+
+  <!-- Left Sidebar -->
+  <div class="sidebar">
+    <h5 class="mb-3"><strong>Family Circle</strong></h5>
+    <ul class="side-nav">
+      <!-- Link back to main dashboard -->
+      <li>
+        <a class="link" href="#" onclick="goToHomeSection('dashboard')">Dashboard</a>
+      </li>
+
+      <!-- Admin group: same 3 items as in index.html, but staying on p2p.html -->
+      <li>
+        <a class="group-title" data-bs-toggle="collapse" href="#adminGroup" role="button" aria-expanded="true">
+          🛠️ Admin <span class="chevron">▾</span>
+        </a>
+        <div class="collapse subgroup show" id="adminGroup">
+          <a class="sublink" href="#" onclick="showSection('p2pGroups')">👥 Create Group</a>
+          <a class="sublink" href="#" onclick="showSection('p2pInvites')">✉️ Invite Users</a>
+          <a class="sublink" href="#" onclick="showSection('p2pConnect')">🔗 Connect with Users</a>
+          <a class="sublink" href="#" onclick="showSection('p2pFiles')" hidden>📦 Shared Text</a>
+        </div>
+      </li>
+
+      <li>
+        <a class="link" href="#" onclick="goToHomeSection('profile')">🙍‍♂️ User Profile</a>
+      </li>
+
+      <!-- Our Family Data: Shared Documents + Ask a Question (single place) -->
+      <li>
+        <a class="group-title" data-bs-toggle="collapse" href="#familyGroup" role="button" aria-expanded="false">
+          📁 Our Family Data <span class="chevron">▾</span>
+        </a>
+        <div class="collapse subgroup" id="familyGroup">
+          <a class="sublink" href="#" onclick="goToHomeSection('upload')">📄 Shared Documents</a>
+          <a class="sublink" href="#" onclick="goToHomeSection('qa')">💬 Ask a Question</a>
+        </div>
+      </li>
+
+      <li>
+        <a class="group-title" data-bs-toggle="collapse" href="#smartChoiceGroup" role="button" aria-expanded="false">
+          Smart Coach Guidance <span class="chevron">▾</span>
+        </a>
+        <div class="collapse subgroup" id="smartChoiceGroup">
+          <a class="sublink" href="https://elderchatgpt.com/memorytest/" target="_blank">ElderCHAT</a>
+          <a class="sublink" href="https://sledss.elderchatgpt.com/" target="_blank">S.L.E.D.S.S.</a>
+        </div>
+      </li>
+
+      <li>
+        <a class="group-title" data-bs-toggle="collapse" href="#agentGroup" role="button" aria-expanded="false">
+          🧠 Our Agents <span class="chevron">▾</span>
+        </a>
+        <div class="collapse subgroup" id="agentGroup">
+          <a class="sublink" href="https://Kin-Keepers.net" target="_blank">Shop for Marketplace Agents</a>
+          <a class="sublink" href="#" onclick="goToHomeSection('installedAgents')">Installed Agents</a>
+        </div>
+      </li>
+      <!-- No extra standalone Ask a Question link here -->
+    </ul>
+
+    <div class="logout-wrap">
+      <a class="logout-btn" href="#" onclick="logout()">Logout</a>
+    </div>
+  </div>
+
+  <!-- Main Panel -->
+  <div class="main-panel">
+    <div class="header">
+      <div class="d-flex align-items-center gap-2">
+        <!-- Title base is just "Group" -->
+        <h4 class="mb-0" id="sectionTitle">Group</h4>
+        <!--<span class="badge bg-light text-dark badge-pill" id="serverBadge" hidden>Server: —</span> -->
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="hint">Status:</span>
+        <span id="status" class="badge bg-info text-dark">Connecting…</span>
+      </div>
+    </div>
+
+    <div id="inlineMsg" class="alert alert-warning mt-3 d-none" role="alert"></div>
+
+    <!-- Create Group -->
+    <div id="p2pGroups" class="section-white">
+      <h5 class="mb-2">👥 Create Group</h5>
+
+      <div class="row g-2 align-items-end">
+       <div class="col-md-4" id="groupNameField">
+  <label class="form-label">New Group Name</label>
+  <input id="groupName" type="text" class="form-control" placeholder="e.g. Family Friday">
+</div>
+
+        <div class="col-md-3">
+          <button id="createGroupBtn" class="btn btn-primary w-100">Create Group</button>
+        </div>
+        <div class="col-md-3">
+          <button id="refreshGroupsBtn" class="btn btn-outline-primary w-100" hidden>Refresh My Groups</button>
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <div class="hint">Your Family Circle group </div>
+        <!-- NEW: One-group limitation message -->
+<div class="alert alert-info mt-3" id="oneGroupNote" style="font-size: 1rem; display:none;">
+  <strong>Note:</strong> At the moment you can only create one group.
+</div>
+
+        <div id="groupsList" class="mt-2 log" style="min-height:60px;"></div>
+        <!-- NEW: Invite Users Button -->
+<div class="mt-3">
+  <button id="goInviteBtn" class="btn btn-success w-100" style="display:none;">
+    ➕ Invite Users
+  </button>
+</div>
+
+      </div>
+
+      <!-- Hidden fields to keep JS happy, but not shown -->
+      <input id="selectedGroupName" type="hidden">
+      <input id="selectedGroupId" type="hidden">
+
+      <div class="mt-2 small text-muted">
+        Once you create a group (or are invited), it is automatically used. No need to join manually.
+      </div>
+    </div>
+
+    <!-- Invite Users -->
+    <div id="p2pInvites" class="section-white hidden">
+      <h5 class="mb-2">✉️ Invite Users</h5>
+
+      <div class="row g-2 align-items-end">
+        <div class="col-md-5">
+          <label class="form-label">Invitee Email</label>
+          <input id="inviteEmail" type="email" class="form-control" placeholder="friend@example.com">
+        </div>
+
+        <!-- Group ID mirror is kept for internal logic but hidden from display -->
+        <div class="col-md-4 d-none">
+          <label class="form-label">Group ID (hidden)</label>
+          <input id="inviteGroupIdMirror" type="text" class="form-control" placeholder="(auto from selection)" disabled>
+          <div class="hint">Selected group is mirrored here.</div>
+        </div>
+
+        <div class="col-md-3 d-flex flex-column gap-2">
+          <button id="inviteExistingBtn" class="btn btn-outline-primary" hidden>Invite Existing User</button>
+          <button id="inviteNewBtn" class="btn btn-primary">Invite via Email</button>
+        </div>
+      </div>
+
+      <p class="hint mt-2">
+        An email invitation will be sent to your contact with instructions to join your Family Circle group.
+      </p>
+
+      <h6 class="mt-4">People in this group</h6>
+      <div id="inviteesList" class="log" style="min-height: 80px;">
+        <span class="text-muted">Your group will appear here once created or when you are invited.</span>
+      </div>
+    </div>
+
+    <!-- Connect with Users -->
+    <div id="p2pConnect" class="section-white hidden">
+      <h5 class="mb-2">🔗 Connect with Users</h5>
+      <p class="hint mb-2">
+        These are members who have invited you to join their Family Circle groups.
+      </p>
+      <div id="connectionsList" class="log" style="min-height: 80px;">
+        <span class="text-muted">You don’t have any invitations yet.</span>
+      </div>
+    </div>
+
+    <!-- Shared Text -->
+    <div id="p2pFiles" class="section-white hidden">
+      <h5 class="mb-2">📦 Shared Text</h5>
+
+      <div class="row g-2 align-items-end">
+        <div class="col-md-6">
+          <input id="fileInput" class="form-control" type="file">
+        </div>
+        <div class="col-md-4">
+          <input id="shareName" class="form-control" placeholder="Shared name (e.g., Project Notes)">
+        </div>
+        <div class="col-md-2">
+          <button id="createSharedTextBtn" class="btn btn-primary w-100" disabled>Share File</button>
+        </div>
+      </div>
+      <div class="hint mt-2">Only extracted text is uploaded. Your original file stays on your computer.</div>
+
+      <h6 class="mt-3">Group Files</h6>
+      <div id="filesList" class="log"></div>
+
+      <h6 class="mt-3">Viewer/Editor</h6>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-5"><input id="permEmail" class="form-control" placeholder="someone@example.com"></div>
+        <div class="col-md-3">
+          <select id="permRole" class="form-select">
+            <option value="viewer">Viewer</option>
+            <option value="editor">Editor</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button id="setPermBtn" class="btn btn-outline-primary w-100" disabled>Set Permission</button>
+        </div>
+      </div>
+
+      <h6 class="mt-3">Document</h6>
+      <textarea id="docArea" class="form-control" placeholder="Open a file from the list…" style="min-height: 280px;"></textarea>
+      <div class="mt-2">
+        <button id="saveDocBtn" class="btn btn-success" disabled>Save Changes</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    function showSection(id) {
+      document.querySelectorAll('.section-white').forEach(s => s.classList.add('hidden'));
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('hidden');
+
+      const titles = {
+        p2pGroups: 'Group',
+        p2pInvites: 'Group • Invite Users',
+        p2pConnect: 'Group • Connect with Users',
+        p2pFiles: 'Group • Shared Text'
+      };
+      document.getElementById('sectionTitle').textContent = titles[id] || 'Group';
+
+      if (id === 'p2pInvites' && window.p2pRefreshInvitees) {
+        window.p2pRefreshInvitees();
+      }
+      if (id === 'p2pConnect' && window.p2pRefreshConnections) {
+        window.p2pRefreshConnections();
+      }
+    }
+
+    // Navigate back to index.html and tell it which section to open
+    function goToHomeSection(sectionId) {
+      try {
+        localStorage.setItem('homeInitialSection', sectionId || 'dashboard');
+      } catch (_) {}
+      try {
+        window.api?.navigateTo?.('index.html');
+      } catch (_) {
+        location.href = 'index.html';
+      }
+    }
+
+    function logout() {
+      try { localStorage.removeItem('user'); } catch(_) {}
+      try { window.api?.logout?.(); } catch(_) {}
+      try { localStorage.removeItem('token'); } catch(_) {}
+      location.href = 'login.html';
+    }
+
+    // Decide initial section of p2p when this page is opened
+    (function () {
+      let initial = 'p2pGroups';
+      try {
+        const stored = localStorage.getItem('p2pInitialSection');
+        if (stored) {
+          initial = stored;
+          localStorage.removeItem('p2pInitialSection');
+        }
+      } catch (_) {}
+      showSection(initial);
+    })();
+  </script>
+
+  <script src="js/p2pClient.js"></script>
+</body>
+</html>

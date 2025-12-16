@@ -1,0 +1,329 @@
+<!--index.html-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Family Circle Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Your styles -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <div class="sidebar">
+    <h5 class="mb-3"><strong>Family Circle</strong></h5>
+    <ul class="side-nav">
+      <li><a class="link" href="#" onclick="showSection('dashboard')">Dashboard</a></li>
+
+      <!-- ADMIN: now has same 3 sub-items, each going to p2p.html with correct initial section -->
+      <li>
+        <a class="group-title" data-bs-toggle="collapse" href="#adminGroup" role="button" aria-expanded="false">
+          🛠️ Admin <span class="chevron">▾</span>
+        </a>
+        <div class="collapse subgroup" id="adminGroup">
+          <!-- Go to p2p.html, open Create Group -->
+          <a
+            class="sublink"
+            href="#"
+            onclick="try { localStorage.setItem('p2pInitialSection','p2pGroups'); } catch(e) {} (window.api?.navigateTo ? window.api.navigateTo('p2p.html') : (location.href='p2p.html'));"
+          >
+            👥 Create Group
+          </a>
+
+          <!-- Go to p2p.html, open Invite Users -->
+          <a
+            class="sublink"
+            href="#"
+            onclick="try { localStorage.setItem('p2pInitialSection','p2pInvites'); } catch(e) {} (window.api?.navigateTo ? window.api.navigateTo('p2p.html') : (location.href='p2p.html'));"
+          >
+            ✉️ Invite Users
+          </a>
+
+          <!-- Go to p2p.html, open Connect with Users -->
+          <a
+            class="sublink"
+            href="#"
+            onclick="try { localStorage.setItem('p2pInitialSection','p2pConnect'); } catch(e) {} (window.api?.navigateTo ? window.api.navigateTo('p2p.html') : (location.href='p2p.html'));"
+          >
+            🔗 Connect with Users
+          </a>
+        </div>
+      </li>
+
+      <li><a class="link" href="#" onclick="showSection('profile')">🙍‍♂️ User Profile</a></li>
+
+      <!-- Our Family Data: Shared Documents + Ask a Question -->
+      <li>
+        <a class="group-title" data-bs-toggle="collapse" href="#familyGroup" role="button" aria-expanded="false">
+          📁 Our Family Data <span class="chevron">▾</span>
+        </a>
+        <div class="collapse subgroup" id="familyGroup">
+          <a class="sublink" href="#" onclick="showSection('upload')">📄 Shared Documents</a>
+          <a class="sublink" href="#" onclick="showSection('qa')">💬 Ask a Question</a>
+        </div>
+      </li>
+
+      <li>
+        <a class="group-title" data-bs-toggle="collapse" href="#smartChoiceGroup" role="button" aria-expanded="false">
+          Smart Coach Guidance <span class="chevron">▾</span>
+        </a>
+        <div class="collapse subgroup" id="smartChoiceGroup">
+          <a class="sublink" href="https://elderchatgpt.com/memorytest/" target="_blank">ElderCHAT</a>
+          <a class="sublink" href="https://sledss.elderchatgpt.com/" target="_blank">S.L.E.D.S.S.</a>
+        </div>
+      </li>
+
+      <li>
+        <a class="group-title" data-bs-toggle="collapse" href="#agentGroup" role="button" aria-expanded="false">
+          🧠 Our Agents <span class="chevron">▾</span>
+        </a>
+        <div class="collapse subgroup" id="agentGroup">
+          <a class="sublink" href="https://Kin-Keepers.net" target="_blank">Shop for Marketplace Agents</a>
+          <a class="sublink" href="#" onclick="showSection('installedAgents')">Installed Agents</a>
+        </div>
+      </li>
+    </ul>
+    <div class="logout-wrap"><a class="logout-btn" href="#" onclick="logout()">Logout</a></div>
+  </div>
+
+  <div class="main-panel">
+    <div class="header">
+      <h4 id="sectionTitle">🏠 Dashboard</h4>
+
+      <!-- Header-right block with mode + Ollama status -->
+      <div class="header-right">
+        <span id="modeStatusHeader" class="mode-status-header">Mode: —</span>
+
+        <div id="slmStatus" class="slm-status">
+          <span id="slmArrow">⬆️</span><span id="slmText">Checking.</span>
+        </div>
+
+        <button
+          id="slmToggleBtn"
+          class="btn btn-sm btn-outline-light"
+          style="padding:2px 8px; font-size:0.8rem; border-radius:12px;"
+          hidden
+        >
+          Recheck Ollama
+        </button>
+      </div>
+    </div>
+
+    <!-- Auto-summary inline -->
+    <div id="autoSummaryBox" role="status" aria-live="polite">
+      <h6>System summary</h6>
+      <p id="autoSummaryText"></p>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard" class="section section-white">
+      <h4>Family Circle</h4>
+      <div id="familyGraph" class="small-muted">Family graph & summary area.</div>
+    </div>
+
+    <!-- Profile -->
+    <div id="profile" class="section hidden section-white">
+      <h4>🙍‍♂️ User Profile</h4>
+      <div id="profileDetails">⏳ Loading.</div>
+
+      <div id="profileForm" class="mt-3" style="display:none;">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="profileEmail" class="form-label">Email</label>
+            <input type="email" id="profileEmail" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label for="profileName" class="form-label">Name</label>
+            <input type="text" id="profileName" class="form-control">
+          </div>
+
+          <div class="col-md-6">
+            <label for="profilePhone" class="form-label">Phone</label>
+            <input type="text" id="profilePhone" class="form-control" placeholder="+256 700 000000">
+          </div>
+
+          <div class="col-md-3">
+            <label for="profileDob" class="form-label">Date of Birth</label>
+            <input type="date" id="profileDob" class="form-control" max="9999-12-31">
+          </div>
+          <div class="col-md-3">
+            <label for="profileAge" class="form-label">Age</label>
+            <input type="number" id="profileAge" class="form-control" min="0" max="130" inputmode="numeric">
+            <div class="form-text">Auto-fills from DOB (you can override)</div>
+          </div>
+
+          <div class="col-md-6">
+            <label for="profileGender" class="form-label">Gender</label>
+            <select id="profileGender" class="form-select">
+              <option value="">-- Select --</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other / Non-binary</option>
+              <option value="prefer_not_to_say">Prefer not to say</option>
+            </select>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Profile Photo</label>
+            <div class="d-flex align-items-center gap-3">
+              <img id="profilePhotoPreview" src="" alt="Profile photo" style="width:72px;height:72px;object-fit:cover;border-radius:50%;border:1px solid #ddd;display:none;">
+              <input type="file" id="profilePhoto" class="form-control" accept="image/*">
+            </div>
+            <div class="form-text">Choose an image to update your photo.</div>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Address</label>
+            <textarea id="profileAddress" rows="2" class="form-control" placeholder="Street, City, Country"></textarea>
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+          <button id="saveProfileBtn" class="btn btn-primary">Save changes</button>
+          <div id="saveStatus" class="mt-1 text-muted"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div id="upload" class="section hidden">
+      <div class="section-white">
+        <h4>📄 Shared Documents</h4>
+        <div class="btn-group tab-icons mb-3">
+          <button class="btn btn-outline-primary" onclick="selectUploadTab('documents')">📄 Documents</button>
+          <button class="btn btn-outline-secondary" onclick="selectUploadTab('photos')">🖼️ Photos</button>
+          <button class="btn btn-outline-secondary" onclick="selectUploadTab('music')">🎵 Music</button>
+        </div>
+
+        <div id="documents" class="upload-tab active">
+          <input type="file" id="docUpload"
+                 accept=".pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                 class="form-control mb-2">
+          <div id="uploadStatus" class="mb-3"></div>
+
+          <div class="select-active-notice inline-notice" id="selectActiveNotice" role="status" aria-live="polite" style="margin-bottom:10px;">
+            <span class="dot" aria-hidden="true"></span>
+            <div>
+              <div style="font-weight:700">Select a document to become active</div>
+              <div class="small-muted">Active document will be used for asking questions and will display its topic here.</div>
+            </div>
+          </div>
+
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <strong class="topic-label">Topic (active document):</strong>
+            <button id="regenTopicBtn" class="btn btn-sm btn-outline-primary" disabled>↻ Regenerate topic</button>
+          </div>
+          <div id="selectedFileMeta" class="mb-2 text-muted active-file-meta" style="font-size: 0.95rem;"></div>
+          <div id="extractedText" class="upload-white mb-3"></div>
+
+          <div class="divider"></div>
+
+          <div><strong class="imported-label">Imported Files:</strong></div>
+
+          <div id="recordMessage" class="mb-2" aria-live="polite"></div>
+
+          <!-- Column headers for document list -->
+          <div class="d-grid mb-1 px-2" style="grid-template-columns: 2fr 3fr 120px;">
+            <strong>Document Name</strong>
+            <strong>Main Topic</strong>
+            <strong>Last Uploaded</strong>
+          </div>
+
+          <div id="recordItems" class="mb-3 upload-white"></div>
+
+        </div>
+
+        <div id="photos" class="upload-tab">
+          <input type="file" id="photoUpload" accept="image/*" multiple class="form-control mb-2">
+          <div id="photoUploadStatus" class="mb-3"></div>
+          <div id="uploadedPhotos" class="d-flex flex-wrap gap-2"></div>
+        </div>
+
+        <div id="music" class="upload-tab">
+          <input type="file" id="musicUpload" accept="audio/*" multiple class="form-control mb-2">
+          <div id="musicUploadStatus" class="mb-3"></div>
+          <div id="uploadedMusic" class="d-flex flex-column gap-2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Installed Agents -->
+    <div id="installedAgents" class="section hidden section-white">
+      <h4>🧠 Installed Agents</h4>
+      <div class="mb-3">
+        <a href="https://Kin-Keepers.net" target="_blank" class="btn btn-outline-primary">Shop for Marketplace Agents</a>
+      </div>
+      <div id="agentTemplates" class="d-flex flex-wrap gap-3"></div>
+      <div id="templateAgents" class="mt-3 upload-white p-3 hidden">
+        <h5>Agents in <span id="selectedTemplateName">Agent Template</span></h5>
+        <div id="agentsList" class="list-group mb-2"></div>
+        <button class="btn btn-sm btn-secondary mt-1" onclick="backToTemplates()">⬅ Back to Template</button>
+      </div>
+      <div id="agentFeatureContent" class="mt-3 upload-white p-3">Select a feature to view its details.</div>
+    </div>
+
+    <!-- QA Section -->
+    <div id="qa" class="section hidden">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div class="qa-header">
+          <h4 class="mb-0">💬 Ask About This File</h4>
+          <div id="qaActiveMeta" style="margin-left:12px;">
+            <span class="small-muted">Active:</span>
+            <span id="qaActiveName" class="active-badge">—</span>
+          </div>
+        </div>
+
+        <!-- Read-only mode display (no index) -->
+        <div class="d-flex align-items-center gap-2 model-picker" id="modelPicker">
+          <span class="small-muted mb-0">Mode:</span>
+          <span id="modelStatusBadge" class="badge bg-warning text-dark">Detecting…</span>
+          <!-- collectionBadge removed so Index is never shown -->
+        </div>
+      </div>
+
+      <div id="modelNotice" class="inline-notice mt-2" role="status" aria-live="polite">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="modelNoticeText">
+          Mode was chosen at login and will be used for this document.
+        </span>
+      </div>
+
+      <!-- Sticky active document heading -->
+      <div id="qaActiveDocument"
+           style="
+             position: sticky;
+             top: 0;
+             z-index: 2;
+             background: white;
+             padding: 14px 8px;
+             border-bottom: 2px solid #d3d3d3;
+             font-weight: 700;
+             font-size: 1.1rem;
+             color: #0b5ed7;
+           ">
+        <!-- Filled dynamically -->
+      </div>
+
+      <div class="mt-3 upload-white p-3 conversation-wrap">
+        <div id="conversationArea" class="conversation-area" role="log" aria-live="polite">
+          <div class="small-muted">No conversation yet. Select a document to begin.</div>
+        </div>
+
+        <div class="conversation-controls">
+          <textarea id="questionInput" class="form-control" rows="2" placeholder="Type your question…" disabled></textarea>
+          <button id="askBtn" class="btn btn-primary" onclick="askQuestion()" disabled>Ask</button>
+          <button class="btn btn-secondary" onclick="clearConversation()">Clear Chat</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Your script -->
+  <script src="app.js"></script>
+</body>
+</html>

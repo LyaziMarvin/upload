@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Family Circle Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body {
+      background-color: #eaf4fc;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .sidebar {
+      background-color: #1a3d5d;
+      color: white;
+      padding: 20px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar h5 {
+      margin-bottom: 1.5rem;
+    }
+    .sidebar button {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    .main-panel {
+      padding: 30px;
+      background-color: #f2f8fd;
+      min-height: 100vh;
+    }
+    .header {
+      background-color: #205081;
+      color: white;
+      padding: 14px 26px;
+      border-radius: 12px;
+      margin-bottom: 25px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+      font-size: 1.25rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+    }
+    .hidden {
+      display: none;
+    }
+    .card-section {
+      background-color: #ffffff;
+      padding: 1.8rem 2rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      margin-bottom: 30px;
+    }
+    .card-section h4 {
+      margin-bottom: 1.2rem;
+      color: #1a3d5d;
+      font-weight: 600;
+    }
+    .card .display-1 {
+      font-size: 4rem;
+      color: #f0ad4e;
+      cursor: pointer;
+    }
+    #familyGraph {
+      width: 100%;
+      height: 600px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+    .record-item {
+      cursor: pointer;
+      color: #205081;
+      margin-bottom: 5px;
+    }
+    .record-item:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-3 sidebar">
+      <div>
+        <h5><strong>Jones Family Circle</strong></h5>
+        <button class="btn btn-outline-light" onclick="showSection('dashboard')">Dashboard</button>
+        <button class="btn btn-outline-light" onclick="showSection('profile')">👤 User Profile</button>
+        <button class="btn btn-outline-light" onclick="showSection('upload')">Uploads</button>
+        <button class="btn btn-outline-light" onclick="showSection('viewRecords')">View Records</button>
+        <button class="btn btn-outline-light" onclick="showSection('relationships')">👪 Relationships</button>
+        <button class="btn btn-outline-light" onclick="showSection('medical')">🧺 Medical</button>
+        <button class="btn btn-outline-light" onclick="showSection('timeline')">🗕️ Timeline</button>
+        <button class="btn btn-outline-light" onclick="showSection('forgotten')">🧳 Forgotten Items</button>
+        <button class="btn btn-outline-warning" onclick="showSection('qa')">💬 Ask a Question</button>
+      </div>
+      <div class="mt-auto">
+        <button class="btn btn-danger w-100" onclick="logout()">Logout</button>
+      </div>
+    </div>
+
+    <div class="col-md-9 main-panel">
+      <div class="header">
+        <h4 id="sectionTitle">🏠 Installed SLM</h4>
+      </div>
+
+      <div id="dashboard" class="card-section">
+        <h4>Family Circle</h4>
+        <div id="familyGraph"></div>
+      </div>
+
+      <div id="profile" class="card-section hidden"><h4>👤 User Profile</h4><div id="profileDetails">Loading...</div></div>
+
+      <div id="upload" class="card-section hidden">
+        <h4>Upload Family Files</h4>
+        <div class="row text-center">
+
+          <div class="col-md-4 mb-4">
+            <div class="card h-100 shadow-sm">
+              <div class="card-body">
+                <div class="display-1" onclick="toggleDocumentPanel()">📁</div>
+                <h5 class="card-title mt-2">Documents</h5>
+              </div>
+            </div>
+          </div>
+
+          <!-- Future folders (Photos, Music) can go here -->
+
+        </div>
+
+        <!-- Document panel -->
+        <div id="documentPanel" class="mt-4 hidden">
+          <h5>📄 Upload and View Documents</h5>
+          <input type="file" id="docUpload" accept=".pdf,.doc,.docx" class="form-control mt-2" onchange="handleUpload('doc')">
+          <div id="uploadStatus" class="text-success mt-2 mb-3"></div>
+
+          <h6 class="mt-3">Uploaded Files:</h6>
+          <div id="recordItems" class="text-start"></div>
+
+          <h6 class="mt-3">Extracted Text:</h6>
+          <div id="extractedText" class="text-start small" style="max-height: 250px; overflow-y: auto; white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; border-radius: 5px;">Select a document to view its content.</div>
+        </div>
+      </div>
+
+      <div id="viewRecords" class="card-section hidden"><h4>Saved Family Records</h4><div id="recordSummary"></div></div>
+      <div id="relationships" class="card-section hidden"><h4>👪 Relationships</h4><div id="relationshipDetails">Loading...</div></div>
+      <div id="medical" class="card-section hidden"><h4>🧰 Medical Records</h4><div id="medicalDetails">Loading...</div></div>
+      <div id="timeline" class="card-section hidden"><h4>🗕️ Timeline</h4><div id="timelineDetails">Loading...</div></div>
+      <div id="forgotten" class="card-section hidden"><h4>🧳 Forgotten Items</h4><div id="forgottenDetails">Loading...</div></div>
+      <div id="qa" class="card-section hidden">
+        <h4>💬 Ask About This Record</h4>
+        <textarea id="questionInput" class="form-control" rows="3"></textarea>
+        <button class="btn btn-primary mt-2" onclick="askQuestion()">Ask</button>
+        <div id="answer" class="mt-3"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = "login.html";
+
+  function logout() {
+    window.api.logout?.();
+    localStorage.clear();
+    location.href = "login.html";
+  }
+
+  function showSection(id) {
+    document.querySelectorAll('.card-section').forEach(div => div.classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+    document.getElementById("sectionTitle").textContent = id;
+    if (id === 'upload') loadDocumentRecords();
+  }
+
+  function toggleDocumentPanel() {
+    const panel = document.getElementById("documentPanel");
+    panel.classList.toggle("hidden");
+  }
+
+  async function handleUpload(type) {
+    const input = document.getElementById('docUpload');
+    const files = Array.from(input.files);
+    if (!files.length) return;
+
+    const list = document.getElementById('recordItems');
+    list.innerHTML = '';
+
+    files.forEach(file => {
+      const li = document.createElement('div');
+      li.textContent = `📄 ${file.name}`;
+      list.appendChild(li);
+    });
+
+    const doc = files[0];
+    if (!token || !doc) {
+      document.getElementById("uploadStatus").textContent = "❌ Please log in and select a document.";
+      return;
+    }
+
+    const res = await window.api.uploadFiles(doc.path, [], token);
+    document.getElementById("uploadStatus").textContent = res.success
+      ? "✅ Document uploaded successfully."
+      : `❌ ${res.error}`;
+
+    if (res.success) loadDocumentRecords();
+  }
+
+  async function loadDocumentRecords() {
+    const res = await window.api.getAllRecords(token);
+    const container = document.getElementById("recordItems");
+    container.innerHTML = '';
+
+    if (!res.success || !res.data.length) {
+      container.innerHTML = '<div class="text-muted">No records found.</div>';
+      return;
+    }
+
+    res.data.forEach(record => {
+      const div = document.createElement("div");
+      div.textContent = `📝 Record ${record.id} — ${new Date(record.uploaded_at || record.created_at || Date.now()).toLocaleString()}`;
+      div.className = "record-item";
+      div.onclick = async () => {
+        const single = await window.api.getRecordById(record.id, token);
+        document.getElementById("extractedText").textContent = single.success ? single.data.extracted_text : '❌ Failed to load text.';
+      };
+      container.appendChild(div);
+    });
+  }
+
+  async function askQuestion() {
+    const question = document.getElementById("questionInput").value;
+    const res = await window.api.askQuestion(question, token);
+    document.getElementById("answer").textContent = res.success ? res.answer : `❌ ${res.error}`;
+  }
+</script>
+</body>
+</html>
