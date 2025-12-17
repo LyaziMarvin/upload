@@ -221,7 +221,7 @@ let _embedderPromise = null;
 async function getEmbedder() {
   if (!_embedderPromise) {
     _embedderPromise = (async () => {
-      const { pipeline } = await import('@xenova/transformers');
+      const { pipeline } = await import('@xenova/transformers/src/transformers.js');
       return pipeline('feature-extraction', TRANSFORMER_EMBED_MODEL);
     })();
   }
