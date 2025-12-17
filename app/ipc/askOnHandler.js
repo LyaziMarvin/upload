@@ -178,7 +178,7 @@ function genOptions() {
 }
 
 // *** Granite caller: supports non-stream and stream ***
-async function askGranite(prompt, { stream = false, timeout = 180000, keepAlive = -1 } = {}) {
+async function askGranite(prompt, { stream = false, timeout = 600000, keepAlive = -1 } = {}) {
   console.log(`[askGranite] Calling with stream=${stream}, timeout=${timeout}ms`);
   console.log(`[askGranite] Prompt length: ${prompt.length} chars`);
 
