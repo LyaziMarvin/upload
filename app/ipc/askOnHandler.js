@@ -246,7 +246,8 @@ async function embedOne(text) {
   try {
     const response = await axios.post(OLLAMA_EMBED_URL, {
       model: OLLAMA_EMBED_MODEL,
-      prompt: String(text || '')
+      prompt: String(text || ''),
+      keep_alive: '10m'
     });
     return response.data.embedding;
   } catch (error) {

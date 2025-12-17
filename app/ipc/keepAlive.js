@@ -23,6 +23,7 @@ async function pingGranite() {
         prompt: 'ping',
         stream: false,
         max_tokens: 1,
+        keep_alive: '10m',
         options: {
           num_predict: 1
         }
@@ -39,7 +40,7 @@ async function pingEmbeddings() {
   try {
     await axios.post(
       `${OLLAMA_URL}/api/embeddings`,
-      { model: OLLAMA_EMBED_MODEL, prompt: 'ok' },
+      { model: OLLAMA_EMBED_MODEL, prompt: 'ok', keep_alive: '10m' },
       { timeout: 20000 }
     );
     console.log('✅ Embeddings keep-alive ok');
