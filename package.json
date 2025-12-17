@@ -41,7 +41,8 @@
     },
     "asarUnpack": [
       "app/database/**",
-      "node_modules/better-sqlite3/**"
+      "node_modules/better-sqlite3/**",
+      "node_modules/@xenova/**"
     ],
     "icon": "assets/icons/family-circle",
     "win": {
