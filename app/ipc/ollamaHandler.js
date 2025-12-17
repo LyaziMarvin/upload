@@ -29,7 +29,7 @@ async function getStatus() {
     try {
       const verRes = await fetchWithTimeout(`${OLLAMA_URL}/api/version`, {}, 1000);
       if (verRes.ok) version = (await verRes.json())?.version ?? null;
-    } catch (_) {}
+    } catch (_) { }
 
     return { running: true, version, models: Array.isArray(tags?.models) ? tags.models : [], ...getState() };
   } catch (err) {
