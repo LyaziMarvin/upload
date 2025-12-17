@@ -158,6 +158,7 @@ function genOptions() {
     max_tokens: 512,
     temperature: 0.2,
     top_p: 0.9,
+    keep_alive: '10m',  // Keep model loaded for 10 minutes
     options: {
       num_predict: 512,
       temperature: 0.2,
@@ -171,10 +172,10 @@ function genOptions() {
 }
 
 // *** Granite caller: supports non-stream and stream ***
-async function askGranite(prompt, { stream = false, timeout = 60000 } = {}) {
+async function askGranite(prompt, { stream = false, timeout = 180000 } = {}) {
   console.log(`[askGranite] Calling with stream=${stream}, timeout=${timeout}ms`);
   console.log(`[askGranite] Prompt length: ${prompt.length} chars`);
-  
+
   const body = {
     model: SLM_MODEL,
     prompt,
