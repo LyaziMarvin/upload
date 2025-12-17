@@ -171,7 +171,10 @@ function genOptions() {
 }
 
 // *** Granite caller: supports non-stream and stream ***
-async function askGranite(prompt, { stream = false, timeout = 600000 } = {}) {
+async function askGranite(prompt, { stream = false, timeout = 60000 } = {}) {
+  console.log(`[askGranite] Calling with stream=${stream}, timeout=${timeout}ms`);
+  console.log(`[askGranite] Prompt length: ${prompt.length} chars`);
+  
   const body = {
     model: SLM_MODEL,
     prompt,
@@ -179,37 +182,59 @@ async function askGranite(prompt, { stream = false, timeout = 600000 } = {}) {
     ...genOptions(),
   };
 
-  if (stream) {
-    const resp = await axios.post(SLM_URL, body, { responseType: 'stream', timeout });
-    return resp;
-  } else {
-    const { data } = await axios.post(SLM_URL, body, { timeout });
+  try {
+    if (stream) {
+      console.log('[askGranite] Making streaming request...');
+      const resp = await axios.post(SLM_URL, body, { responseType: 'stream', timeout });
+      console.log('[askGranite] Stream response received');
+      return resp;
+    } else {
+      console.log('[askGranite] Making non-streaming request...');
+      const startTime = Date.now();
+      const { data } = await axios.post(SLM_URL, body, { timeout });
+      console.log(`[askGranite] Response received in ${Date.now() - startTime}ms`);
 
-    if (DEBUG) {
-      console.log(
-        'Granite raw response (non-stream):',
-        typeof data === 'string' ? data.slice(0, 200) : data
-      );
-    }
-
-    // Case 1: Ollama-style single JSON object
-    if (data && typeof data === 'object') {
-      if (typeof data.response === 'string') {
-        return data.response.trim();
+      if (DEBUG) {
+        console.log(
+          'Granite raw response (non-stream):',
+          typeof data === 'string' ? data.slice(0, 200) : data
+        );
       }
-      // Fallback if some wrapper uses a 'data' string with JSONL
-      if (typeof data.data === 'string') {
-        return extractGraniteStreamedAnswer(data.data);
+
+      // Case 1: Ollama-style single JSON object
+      if (data && typeof data === 'object') {
+        if (typeof data.response === 'string') {
+          console.log('[askGranite] Extracted response from data.response');
+          return data.response.trim();
+        }
+        // Fallback if some wrapper uses a 'data' string with JSONL
+        if (typeof data.data === 'string') {
+          console.log('[askGranite] Extracting from JSONL in data.data');
+          return extractGraniteStreamedAnswer(data.data);
+        }
+        console.log('[askGranite] No response field found in object');
+        return 'No response field in Granite reply.';
       }
-      return 'No response field in Granite reply.';
-    }
 
-    // Case 2: Raw JSONL string even with stream=false
-    if (typeof data === 'string') {
-      return extractGraniteStreamedAnswer(data);
-    }
+      // Case 2: Raw JSONL string even with stream=false
+      if (typeof data === 'string') {
+        console.log('[askGranite] Extracting from raw JSONL string');
+        return extractGraniteStreamedAnswer(data);
+      }
 
-    return 'No usable response from Granite.';
+      console.log('[askGranite] No usable response format');
+      return 'No usable response from Granite.';
+    }
+  } catch (error) {
+    console.error('[askGranite] ERROR:', error.message);
+    if (error.code === 'ECONNABORTED') {
+      console.error('[askGranite] Request timed out');
+    }
+    if (error.response) {
+      console.error('[askGranite] Response status:', error.response.status);
+      console.error('[askGranite] Response data:', error.response.data);
+    }
+    throw error;
   }
 }
 
@@ -343,7 +368,7 @@ Answer:`;
     const answer = await askGranite(prompt);
     console.log(`[askOnHandler] Granite responded in ${Date.now() - graniteStart}ms`);
     console.log(`[askOnHandler] TOTAL TIME: ${Date.now() - startTime}ms`);
-    
+
     return {
       success: true,
       answer,
