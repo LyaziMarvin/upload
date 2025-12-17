@@ -18,8 +18,8 @@ async function fetchWithTimeout(url, opts = {}, ms = 1500) {
   } finally { clearTimeout(id); }
 }
 
-// Health/status (extends your original)
-ipcMain.handle('ollama:status', async () => {
+// Health/status function (can be called directly)
+async function getStatus() {
   try {
     const tagsRes = await fetchWithTimeout(`${OLLAMA_URL}/api/tags`, {}, 1500);
     if (!tagsRes.ok) return { running: false, httpStatus: tagsRes.status, ...getState() };
@@ -35,25 +35,30 @@ ipcMain.handle('ollama:status', async () => {
   } catch (err) {
     return { running: false, error: err?.name || 'NETWORK_ERROR', ...getState() };
   }
+}
+
+// Health/status (extends your original)
+ipcMain.handle('ollama:status', async () => {
+  return await getStatus();
 });
 
 // explicitly start/ensure
 ipcMain.handle('ollama:ensure-started', async () => {
   const ok = await ensureStarted({ log: true });
-  return { success: ok, ...(await ipcMain.invoke('ollama:status')) };
+  return { success: ok, ...(await getStatus()) };
 });
 
 // explicitly stop (only if we started it)
 ipcMain.handle('ollama:stop', async () => {
   await stop({ log: true });
   const healthy = await isHealthy(); // if a system daemon is up, this can still be true
-  return { success: true, stillReachable: healthy, ...(await ipcMain.invoke('ollama:status')) };
+  return { success: true, stillReachable: healthy, ...(await getStatus()) };
 });
 
 // ---- NEW: force-kill all Ollama processes on the machine ----
 ipcMain.handle('ollama:kill-all', async () => {
   const { success, stillReachable } = await killAll({ log: true });
-  const status = await ipcMain.invoke('ollama:status');
+  const status = await getStatus();
   return { success, stillReachable, ...status };
 });
 
