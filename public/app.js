@@ -10,6 +10,17 @@ let __currentRecordId = null;
 let __activeRecordId = null;    // id of the active document
 let __documentReady = false;    // true when warm-up preprocessing completed
 
+// Track in-flight document preparation (topic generation)
+let __prepSeq = 0;
+let __prepRecordId = null;
+let __prepPromise = null;
+
+function cancelActivePreparation() {
+  __prepSeq += 1; // invalidates any in-flight completion handlers
+  __prepRecordId = null;
+  __prepPromise = null;
+}
+
 // In-memory conversations per record id
 // structure: { [recordId]: [{ from: 'user' | 'bot', text: string, beganAt?: number, finishedAt?: number }] }
 const __conversations = {};
@@ -121,7 +132,6 @@ function showSection(id) {
     renderConversation(__activeRecordId);
   }
 }
-
 // -------- Profile --------
 async function loadProfile() {
   const el = document.getElementById("profileDetails");
@@ -306,18 +316,39 @@ function showAutoSummary(text) {
 }
 
 // Startup auto-summary (non-stream) – respects global mode
-async function runAutoSummaryAtStartup() {
+ async function runAutoSummaryAtStartup() {
   if (!token) return;
   try {
-    const q = "What is the main topic of this document?";
-    const res = await askBackend(q, { type: 'latest' }, { keepAlive: -1 });
-    if (res && res.success && res.answer) {
-      showAutoSummary(res.answer);
-      const ans = document.getElementById('answer'); // legacy; will be unused with chat UI
-      if (ans && !document.getElementById('qa').classList.contains('hidden')) {
-        ans.innerHTML = `<b>System summary:</b>\n\n${res.answer}`;
-      }
+    const list = await window.api.getAllRecords(token);
+    const latest = (list && list.success && Array.isArray(list.data) && list.data.length)
+      ? list.data[0]
+      : null;
+
+    if (!latest?.id) return;
+
+    __activeRecordId = latest.id;
+    __currentRecordId = latest.id;
+    updateQAActiveMeta();
+
+    const existingTopic = (latest.topic && String(latest.topic).trim()) ? String(latest.topic).trim() : '';
+
+    // Always warm up the active document on login and block QA until it's done.
+    __documentReady = false;
+    updateAskControlsUI();
+    showAutoSummary(existingTopic || 'Preparing document topic...');
+
+    // Ensure the "preparing" UI is visible when the user opens Shared Documents.
+    const topicEl = document.getElementById("extractedText");
+    if (topicEl) {
+      topicEl.innerHTML = `
+        <div class="preparing-box">
+          <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+          <div>Preparing document for questions... This may take a couple of minutes, depending on the size of the document.</div>
+        </div>
+      `;
     }
+
+    setActiveRecordAndPrepare(latest.id, false, true, { forceWarmup: true, existingTopic }).catch(() => {});
   } catch (e) {
     console.warn('Auto-summary startup failed:', e);
   }
@@ -364,16 +395,37 @@ async function handleUpload() {
 
   statusEl.textContent = '⏳ Uploading...';
   try {
+    // If a topic prep is still running, supersede it with this new upload.
+    cancelActivePreparation();
+
     const res = await window.api.uploadFiles({ docPath: doc.path, photoPaths: [], musicPaths: [], token });
     statusEl.textContent = res && res.success ? "✅ Import successful" : `❌ ${(res && res.error) || 'Upload failed.'}`;
 
     if (res && res.success) {
       await loadDocumentRecords();
-      // Auto-select and prepare newly uploaded record if backend returns id
+      // Auto-select newly uploaded record; topic is returned/saved by backend.
       try {
         const recordId = res.data && res.data.recordId;
         if (recordId) {
-          await setActiveRecordAndPrepare(recordId, true);
+          __activeRecordId = recordId;
+          __currentRecordId = recordId;
+          markActiveInList(recordId);
+          updateQAActiveMeta();
+
+          const topicText = res.data?.topic || res.data?.autoAnswer || '';
+          const topicEl = document.getElementById("extractedText");
+          if (topicEl) topicEl.textContent = topicText || 'Topic will appear shortly...';
+
+          if (topicText && String(topicText).trim()) {
+            __documentReady = true;
+            updateAskControlsUI();
+            showAutoSummary(topicText);
+          } else {
+            // Fallback: generate topic if backend couldn't produce it.
+            __documentReady = false;
+            updateAskControlsUI();
+            await setActiveRecordAndPrepare(recordId, true, true);
+          }
         }
       } catch (e) {
         console.warn('Auto-summary after upload failed:', e);
@@ -489,10 +541,8 @@ async function loadDocumentRecords() {
 
     if (__activeRecordId) {
       markActiveInList(__activeRecordId);
-      if (!__currentRecordId) {
-        // Auto-prepare active doc silently on first load
-        await setActiveRecordAndPrepare(__activeRecordId, false, true);
-      }
+      // Avoid auto-prepare here to prevent duplicate requests.
+      if (!__currentRecordId) __currentRecordId = __activeRecordId;
     }
   } catch (err) {
     c.innerHTML = `<div class="text-danger">❌ ${(err && err.message) || 'Failed to load records.'}</div>`;
@@ -552,7 +602,13 @@ function markActiveInList(recordId) {
 }
 
 // Prepare active record (warm-up + topic) BEFORE questions
-async function setActiveRecordAndPrepare(recordId, calledAfterUpload = false, silentAuto = false) {
+async function setActiveRecordAndPrepare(recordId, calledAfterUpload = false, silentAuto = false, opts = {}) {
+  // Reuse any in-flight prep for the same record to avoid duplicate requests.
+  if (__prepPromise && __prepRecordId === recordId) return __prepPromise;
+  const mySeq = (__prepSeq += 1);
+  __prepRecordId = recordId;
+
+  __prepPromise = (async () => {
   __activeRecordId = recordId;
   __currentRecordId = recordId;
   __documentReady = false;       // lock questions while preparing
@@ -561,6 +617,28 @@ async function setActiveRecordAndPrepare(recordId, calledAfterUpload = false, si
   updateAskControlsUI();         // immediately show “document is being prepared”
 
   const topicEl = document.getElementById("extractedText");
+
+  const forceWarmup = !!opts.forceWarmup;
+  let existingTopic = (opts.existingTopic && String(opts.existingTopic).trim()) ? String(opts.existingTopic).trim() : '';
+
+  // If we weren't provided a topic, check DB (fast).
+  if (!existingTopic) {
+    try {
+      const existing = await window.api.getRecordById(recordId, token);
+      const t = existing?.success ? (existing.data?.topic || '') : '';
+      if (t && String(t).trim()) existingTopic = String(t).trim();
+    } catch (_) {}
+  }
+
+  // If topic already exists and we are not forcing warm-up, skip regeneration entirely.
+  if (existingTopic && !forceWarmup) {
+    if (topicEl) topicEl.textContent = existingTopic;
+    showAutoSummary(existingTopic);
+    __documentReady = true;
+    updateAskControlsUI();
+    return;
+  }
+
   if (topicEl) {
     topicEl.innerHTML = `
       <div class="preparing-box">
@@ -573,32 +651,43 @@ async function setActiveRecordAndPrepare(recordId, calledAfterUpload = false, si
   try {
     const q = "What is the main topic of this document?";
     const scope = { type: 'ids', ids: [recordId] };
-    const res = await askBackend(q, scope, { keepAlive: -1 });
+    const res = await askBackend(q, scope);
+
+    // Ignore stale completions (e.g., a newer upload/prep superseded this one)
+    if (mySeq !== __prepSeq) return;
 
     if (res && res.success && res.answer) {
-      if (topicEl) topicEl.textContent = res.answer || '(No topic generated)';
-      trySaveTopicForRecord(recordId, res.answer);
+      const topicText = existingTopic || res.answer || '(No topic generated)';
+      if (topicEl) topicEl.textContent = topicText;
+      showAutoSummary(topicText);
+      if (!existingTopic) trySaveTopicForRecord(recordId, topicText);
       __documentReady = true;
       const info = document.getElementById('streamStartInfo');
       if (info) info.textContent = '✅ Warm-up complete. Ready for questions.';
       const modelNoticeText = document.getElementById('modelNoticeText');
       if (modelNoticeText) modelNoticeText.textContent = 'Ready for questions.';
-      showRecordMessage('success', '✅ Document prepared and ready for queries.');
+      if (!silentAuto) showRecordMessage('success', 'Document prepared and ready for queries.');
     } else {
       const errText = (res && res.error) || 'Warm-up failed.';
       if (topicEl) topicEl.textContent = `❌ ${errText}`;
       if (!silentAuto) showRecordMessage('danger', `❌ ${errText}`);
       __documentReady = false;
     }
-  } catch (e) {
+  } catch (e) { if (mySeq !== __prepSeq) return;
     if (topicEl) topicEl.textContent = `❌ ${e.message || 'Error preparing document.'}`;
     __documentReady = false;
   } finally {
+    if (mySeq !== __prepSeq) return;
     const regenBtn = document.getElementById("regenTopicBtn");
     if (regenBtn) regenBtn.disabled = false;
     updateQAActiveMeta();
     updateAskControlsUI();   // finally update textbox & button
+    __prepRecordId = null;
+    __prepPromise = null;
   }
+  })();
+
+  return __prepPromise;
 }
 
 // -------- Photos --------
@@ -941,14 +1030,14 @@ function renderConversation(recordId) {
     bubble.className = m.from === 'user' ? 'chat-message user' : 'chat-message bot';
 
     let meta = '';
-    if (m.beganAt) {
-      const base  = window.__streamStart || m.beganAt;
-      const began = ((m.beganAt - base) / 1000).toFixed(2);
+    if (m.beganAt && typeof m.streamStartAt === 'number') {
+      const base = typeof m.streamStartAt === 'number' ? m.streamStartAt : m.beganAt;
+      const began = (Math.max(0, m.beganAt - base) / 1000).toFixed(2);
       meta += `<div class="msg-meta">✍️ Began: ${began}s</div>`;
     }
-    if (m.finishedAt) {
-      const base = window.__streamStart || m.finishedAt;
-      const done = ((m.finishedAt - base) / 1000).toFixed(2);
+    if (m.finishedAt && typeof m.streamStartAt === 'number') {
+      const base = typeof m.streamStartAt === 'number' ? m.streamStartAt : m.finishedAt;
+      const done = (Math.max(0, m.finishedAt - base) / 1000).toFixed(2);
       meta += `<div class="msg-meta">✅ Completed: ${done}s</div>`;
     }
 
@@ -979,7 +1068,8 @@ window.clearConversation = clearConversation;
 // startAskStream streams into conversationArea with timing info
 function startAskStream(question, scope = { type: 'all' }, topK = 4, initiatedAt = null) {
   return new Promise((resolve) => {
-    window.__streamStart = performance.now();
+    const startedAt = typeof initiatedAt === 'number' ? initiatedAt : performance.now();
+    let answerCompleteAt = null;
 
     try { window.api.removeAskStreamListeners(); } catch (_) {}
 
@@ -1003,6 +1093,7 @@ function startAskStream(question, scope = { type: 'all' }, topK = 4, initiatedAt
       __conversations[__activeRecordId].push({
         from: 'bot',
         text: '',
+        streamStartAt: startedAt,
         beganAt: null,
         finishedAt: null
       });
@@ -1011,7 +1102,6 @@ function startAskStream(question, scope = { type: 'all' }, topK = 4, initiatedAt
       answerEl.innerHTML = '<div class="chat-row right"><div class="chat-message bot">...</div></div>';
     }
 
-    const startedAt = typeof initiatedAt === 'number' ? initiatedAt : performance.now();
     let firstChunkAt = null;
     let firstTypedAt = null;
 
@@ -1024,8 +1114,8 @@ function startAskStream(question, scope = { type: 'all' }, topK = 4, initiatedAt
         const t = ((firstTypedAt - startedAt) / 1000).toFixed(2);
         parts.push(`✍️ Response began at ${t}s`);
       }
-      if (window.__answerCompleteAt && firstTypedAt) {
-        const done = ((window.__answerCompleteAt - startedAt) / 1000).toFixed(2);
+      if (answerCompleteAt && firstTypedAt) {
+        const done = (Math.max(0, answerCompleteAt - startedAt) / 1000).toFixed(2);
         parts.push(`✅ Answer complete at ${done}s`);
       }
 
@@ -1065,10 +1155,13 @@ function startAskStream(question, scope = { type: 'all' }, topK = 4, initiatedAt
         try { window.api.removeAskStreamListeners(); } catch {}
         clearTimeout(stallTimer);
 
+        const doneAt = performance.now();
+        answerCompleteAt = doneAt;
+
         if (__activeRecordId && __conversations[__activeRecordId]?.length) {
           const conv = __conversations[__activeRecordId];
           const last = conv[conv.length - 1];
-          if (last) last.finishedAt = performance.now();
+          if (last) last.finishedAt = doneAt;
           renderConversation(__activeRecordId);
         }
 
@@ -1256,7 +1349,6 @@ async function askQuestion(preFilled = null) {
 
     const initiatedAt = performance.now();
     const res = await startAskStream(q, scope, 4, initiatedAt);
-    window.__answerCompleteAt = performance.now();
 
     if (res && res.success) {
       if (qEl) qEl.value = '';
