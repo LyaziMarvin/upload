@@ -158,7 +158,7 @@ function genOptions() {
     max_tokens: 512,
     temperature: 0.2,
     top_p: 0.9,
-    keep_alive: '10m',  // Keep model loaded for 10 minutes
+    keep_alive: -1,  // Keep model loaded indefinitely after document queries
     options: {
       num_predict: 512,
       temperature: 0.2,
@@ -246,8 +246,7 @@ async function embedOne(text) {
   try {
     const response = await axios.post(OLLAMA_EMBED_URL, {
       model: OLLAMA_EMBED_MODEL,
-      prompt: String(text || ''),
-      keep_alive: '10m'
+      prompt: String(text || '')
     });
     return response.data.embedding;
   } catch (error) {
