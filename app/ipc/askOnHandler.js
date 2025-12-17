@@ -7,14 +7,12 @@ const { decodeToken } = require('../model/userModel');
 // -------- Config (Granite via Ollama-compatible HTTP) --------
 const SLM_URL = process.env.SLM_URL || 'http://208.109.228.76:11435/api/generate';
 const SLM_MODEL = process.env.SLM_MODEL || 'granite3.2:2b';
+const OLLAMA_EMBED_URL = process.env.OLLAMA_EMBED_URL || 'http://208.109.228.76:11435/api/embeddings';
+const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL || 'all-minilm';
 
 const DEBUG = true;
 const MAX_TOKENS_PER_CHUNK = 2000;
 const TOKEN_CHAR_RATIO = 4;
-
-// Transformers embedding model (Xenova)
-const TRANSFORMER_EMBED_MODEL =
-  process.env.TRANSFORMER_EMBED_MODEL || 'Xenova/all-MiniLM-L12-v2';
 
 // ------------- Naming -------------
 // Kept name for backwards-compat with existing collections
@@ -27,7 +25,7 @@ function safeMsg(e) {
   if (e?.response?.data) {
     try {
       return JSON.stringify(e.response.data);
-    } catch (_) {}
+    } catch (_) { }
   }
   return e?.message || String(e);
 }
@@ -150,7 +148,7 @@ function extractGraniteStreamedAnswer(rawData) {
       const obj = JSON.parse(line);
       if (obj.response) answer += obj.response;
       if (obj.done) break;
-    } catch (_) {}
+    } catch (_) { }
   }
   return answer.trim() || 'Document ready for questioning.';
 }
@@ -218,21 +216,17 @@ async function askGranite(prompt, { stream = false, timeout = 600000 } = {}) {
 // -------- Embeddings (Transformers instead of Ollama) --------
 let _embedderPromise = null;
 
-async function getEmbedder() {
-  if (!_embedderPromise) {
-    _embedderPromise = (async () => {
-      const { pipeline } = await import('@xenova/transformers/src/transformers.js');
-      return pipeline('feature-extraction', TRANSFORMER_EMBED_MODEL);
-    })();
-  }
-  return _embedderPromise;
-}
-
 async function embedOne(text) {
-  const embedder = await getEmbedder();
-  const out = await embedder(String(text || ''), { pooling: 'mean', normalize: true });
-  // out.data is a TypedArray; convert to JS array
-  return Array.from(out.data);
+  try {
+    const response = await axios.post(OLLAMA_EMBED_URL, {
+      model: OLLAMA_EMBED_MODEL,
+      prompt: String(text || '')
+    });
+    return response.data.embedding;
+  } catch (error) {
+    console.error('Ollama embedding error:', error.message);
+    throw new Error('Failed to generate embedding with Ollama');
+  }
 }
 
 // ---------------- Prompts (existing) ----------------
@@ -469,7 +463,7 @@ ipcMain.on('ask:on:question:stream', async (event, { question, token, scope, top
               JSON.stringify({ type: 'token', response: obj.response })
             );
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
       event.sender.send(

@@ -10,10 +10,8 @@ const { runAsync, getAsync, allAsync } = require('../database/db');
 // ---------------- Config ----------------
 const SLM_URL = process.env.SLM_URL || 'http://208.109.228.76:11435/api/generate';
 const SLM_MODEL = process.env.SLM_MODEL || 'granite3.2:2b';
-
-// ---- Embeddings (Transformers, same style as askOnHandler.js) ----
-const TRANSFORMER_EMBED_MODEL =
-  process.env.TRANSFORMER_EMBED_MODEL || 'Xenova/all-MiniLM-L12-v2';
+const OLLAMA_EMBED_URL = process.env.OLLAMA_EMBED_URL || 'http://208.109.228.76:11435/api/embeddings';
+const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL || 'all-minilm';
 
 // Limits for chunking and token -> char ratio (heuristic)
 const LINES_PER_CHUNK = 120;
@@ -100,7 +98,7 @@ function cosineSimilarity(a, b) {
 }
 
 function safeMsg(e) {
-  if (e?.response?.data) try { return JSON.stringify(e.response.data); } catch (_) {}
+  if (e?.response?.data) try { return JSON.stringify(e.response.data); } catch (_) { }
   return e?.message || String(e);
 }
 
@@ -109,7 +107,7 @@ function normalizeTopic(s) {
   if (!s) return null;
   let t = String(s).trim();
   t = t.replace(/^\s*(topic:|main topic:)\s*/i, '').trim();
-  t = t.replace(/[\s\.\!\?]+$/,'').trim();
+  t = t.replace(/[\s\.\!\?]+$/, '').trim();
   t = t.replace(/\s+/g, ' ').slice(0, 120);
   if (t) t = t.charAt(0).toUpperCase() + t.slice(1);
   return t || null;
@@ -118,21 +116,17 @@ function normalizeTopic(s) {
 // ---------- Embeddings (Transformers) ----------
 let _embedderPromise = null;
 
-async function getEmbedder() {
-  if (!_embedderPromise) {
-    _embedderPromise = (async () => {
-      const { pipeline } = await import('@xenova/transformers/src/transformers.js');
-      return pipeline('feature-extraction', TRANSFORMER_EMBED_MODEL);
-    })();
-  }
-  return _embedderPromise;
-}
-
 async function embedOne(text) {
-  const embedder = await getEmbedder();
-  const out = await embedder(String(text || ''), { pooling: 'mean', normalize: true });
-  // TypedArray -> plain JS array
-  return Array.from(out.data);
+  try {
+    const response = await axios.post(OLLAMA_EMBED_URL, {
+      model: OLLAMA_EMBED_MODEL,
+      prompt: String(text || '')
+    });
+    return response.data.embedding;
+  } catch (error) {
+    console.error('Ollama embedding error:', error.message);
+    throw new Error('Failed to generate embedding with Ollama');
+  }
 }
 
 // ---------------- Granite (SLM) helper ----------------
@@ -176,7 +170,7 @@ async function askGranite(prompt, { stream = false, timeout = 600000 } = {}) {
           const obj = JSON.parse(ln);
           if (obj.response) answer += obj.response;
           if (obj.done) break;
-        } catch (_) {}
+        } catch (_) { }
       }
       if (answer) return answer.trim();
     }
@@ -335,7 +329,7 @@ ipcMain.handle('upload:files', async (_event, { docPath, photoPaths, musicPaths,
               const context = topChunks.join('\n---\n');
 
               // Build prompt
-           const prompt = `Answer the question using ONLY this context:\n${context}\n\nQuestion: ${question}\n\nAnswer:\n make sure the main topic of any document small or big doesnot exceed 10 words. `;
+              const prompt = `Answer the question using ONLY this context:\n${context}\n\nQuestion: ${question}\n\nAnswer:\n make sure the main topic of any document small or big doesnot exceed 10 words. `;
 
               // Call Granite (non-streaming)
               try {
