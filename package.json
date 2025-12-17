@@ -1,6 +1,6 @@
 {
   "name": "family-circle",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Electron desktop app with better-sqlite3",
   "main": "src/main.js",
   "scripts": {
