@@ -21,7 +21,8 @@ contextBridge.exposeInMainWorld('api', {
   regenerateTopic: (id, token) => ipcRenderer.invoke('records:regenerate-topic', { id, token }),
 
   // Ask / QA
-  askQuestionOn: (question, token, scope = { type: 'all' }) => ipcRenderer.invoke('ask:on:question', { question, token, scope }),
+  askQuestionOn: (question, token, scope = { type: 'all' }) =>
+    ipcRenderer.invoke('ask:on:question', { question, token, scope, keepAlive: -1 }),
   askQuestionOff: (question, token, scope = { type: 'all' }) => ipcRenderer.invoke('ask:off:question', { question, token, scope }),
   askCategoryOn: (category, token, scope = { type: 'all' }) => ipcRenderer.invoke('ask:on:category', { category, token, scope }),
   askCategoryOff: (category, token, scope = { type: 'all' }) => ipcRenderer.invoke('ask:off:category', { category, token, scope }),

@@ -14,6 +14,13 @@ const DEBUG = true;
 const MAX_TOKENS_PER_CHUNK = 2000;
 const TOKEN_CHAR_RATIO = 4;
 
+// Always apply keep_alive (default -1) once per request body
+function applyKeepAlive(body, keepAlive = -1) {
+  const val = (keepAlive === null || keepAlive === undefined) ? -1 : keepAlive;
+  body.keep_alive = val;
+  return body;
+}
+
 // ------------- Naming -------------
 // Kept name for backwards-compat with existing collections
 function collectionNameForUser(userId) {
@@ -158,7 +165,6 @@ function genOptions() {
     max_tokens: 512,
     temperature: 0.2,
     top_p: 0.9,
-    keep_alive: -1,  // Keep model loaded indefinitely after document queries
     options: {
       num_predict: 512,
       temperature: 0.2,
@@ -172,16 +178,19 @@ function genOptions() {
 }
 
 // *** Granite caller: supports non-stream and stream ***
-async function askGranite(prompt, { stream = false, timeout = 180000 } = {}) {
+async function askGranite(prompt, { stream = false, timeout = 180000, keepAlive = -1 } = {}) {
   console.log(`[askGranite] Calling with stream=${stream}, timeout=${timeout}ms`);
   console.log(`[askGranite] Prompt length: ${prompt.length} chars`);
 
-  const body = {
-    model: SLM_MODEL,
-    prompt,
-    stream,
-    ...genOptions(),
-  };
+  const body = applyKeepAlive(
+    {
+      model: SLM_MODEL,
+      prompt,
+      stream,
+      ...genOptions(),
+    },
+    keepAlive
+  );
 
   try {
     if (stream) {
@@ -305,7 +314,7 @@ Answer:
 });
 
 // ---------------- RAG (non-streaming) ----------------
-ipcMain.handle('ask:on:question', async (_event, { question, token, scope, topK = 4 }) => {
+ipcMain.handle('ask:on:question', async (_event, { question, token, scope, topK = 4, keepAlive = -1 }) => {
   const decoded = decodeToken(token);
   if (!decoded?.userId) return { success: false, error: 'Not authenticated' };
 
@@ -366,7 +375,7 @@ QUESTION: ${question}
 
 Answer:`;
 
-    const answer = await askGranite(prompt);
+    const answer = await askGranite(prompt, { keepAlive });
     console.log(`[askOnHandler] Granite responded in ${Date.now() - graniteStart}ms`);
     console.log(`[askOnHandler] TOTAL TIME: ${Date.now() - startTime}ms`);
 
@@ -452,14 +461,17 @@ ipcMain.on('ask:on:question:stream', async (event, { question, token, scope, top
       })
     );
 
-    const body = {
-      model: SLM_MODEL,
-      prompt: `Answer the question using ONLY this context. Be concise. Do not repeat words or syllables.\n\nCONTEXT:\n${docs.join(
-        '\n---\n'
-      )}\n\nQUESTION: ${question}\n\nAnswer:`,
-      stream: true,
-      ...genOptions(),
-    };
+    const body = applyKeepAlive(
+      {
+        model: SLM_MODEL,
+        prompt: `Answer the question using ONLY this context. Be concise. Do not repeat words or syllables.\n\nCONTEXT:\n${docs.join(
+          '\n---\n'
+        )}\n\nQUESTION: ${question}\n\nAnswer:`,
+        stream: true,
+        ...genOptions(),
+      },
+      -1 // keep model warm for streamed doc queries
+    );
 
     const resp = await axios.post(SLM_URL, body, { responseType: 'stream', timeout: 0 });
 
@@ -574,7 +586,7 @@ ipcMain.handle('ask:on:auto', async (_event, {
     const context = top.join('\n---\n');
 
     // non-streamed call for quick first-pass
-    const prompt = `Answer the question using ONLY this context:\n${context}\n\nQuestion: ${question}`;
+    const prompt = `CONTEXT:\n${context}\n\nQuestion: ${question}\n\nAnswer the question using ONLY this context. Be concise. Do not repeat words or syllables.`;
     const answer = await askGranite(prompt, { stream: false });
 
     return { success: true, autoAnswer: answer };

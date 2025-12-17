@@ -310,7 +310,7 @@ async function runAutoSummaryAtStartup() {
   if (!token) return;
   try {
     const q = "What is the main topic of this document?";
-    const res = await askBackend(q, { type: 'latest' });
+    const res = await askBackend(q, { type: 'latest' }, { keepAlive: -1 });
     if (res && res.success && res.answer) {
       showAutoSummary(res.answer);
       const ans = document.getElementById('answer'); // legacy; will be unused with chat UI
@@ -573,7 +573,7 @@ async function setActiveRecordAndPrepare(recordId, calledAfterUpload = false, si
   try {
     const q = "What is the main topic of this document?";
     const scope = { type: 'ids', ids: [recordId] };
-    const res = await askBackend(q, scope);
+    const res = await askBackend(q, scope, { keepAlive: -1 });
 
     if (res && res.success && res.answer) {
       if (topicEl) topicEl.textContent = res.answer || '(No topic generated)';
@@ -751,14 +751,14 @@ function getStoredModel() { return localStorage.getItem(MODEL_KEY) || 'none'; }
 function storeModel(value) { localStorage.setItem(MODEL_KEY, value); }
 
 // Global helper: choose online/offline backend based on mode
-async function askBackend(question, scope = { type: 'all' }) {
+async function askBackend(question, scope = { type: 'all' }, opts = {}) {
   const mode = getStoredModel(); // 'online' | 'offline' | 'none'
 
   if (mode === 'offline') {
     return window.api.askQuestionOff(question, token, scope);
   }
   if (mode === 'online') {
-    return window.api.askQuestionOn(question, token, scope);
+    return window.api.askQuestionOn(question, token, scope, opts);
   }
 
   throw new Error('App mode not set. Please logout and log in again.');
@@ -1305,7 +1305,7 @@ async function regenerateTopicForCurrent() {
     } else {
       const q = "What is the main topic of this document?";
       const scope = { type: 'ids', ids: [__currentRecordId] };
-      const done = await askBackend(q, scope);
+      const done = await askBackend(q, scope, { keepAlive: -1 });
       if (!done || !done.success || !done.answer) {
         t.textContent = textBackup;
         showRecordMessage('danger', `❌ ${(done && done.error) || 'Failed to regenerate (fallback)'}`);
