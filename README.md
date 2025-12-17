@@ -26,6 +26,10 @@ An Electron desktop app for managing family documents, records, and AI-powered Q
 2. **Clone or extract the project**:
    - Avoid placing in OneDrive or synced folders (can cause EPERM errors).
 
+   ```powershell
+   xcopy /E /I /H /Y "C:\Users\kasul\OneDrive\Desktop\code\upload\app" "C:\dev\upload\app"
+   ```
+
 3. **Install dependencies**:
 
    ```bash
