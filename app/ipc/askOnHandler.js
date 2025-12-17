@@ -284,24 +284,38 @@ ipcMain.handle('ask:on:question', async (_event, { question, token, scope, topK 
   if (!decoded?.userId) return { success: false, error: 'Not authenticated' };
 
   try {
+    console.log('[askOnHandler] Starting question processing...');
+    const startTime = Date.now();
+
     const mergedText = await fetchScopedText(decoded.userId, scope);
+    console.log(`[askOnHandler] Fetched text: ${mergedText.length} chars in ${Date.now() - startTime}ms`);
+
     if (!mergedText.trim()) {
       return { success: true, answer: 'No document text found.' };
     }
 
     // chunk, embed chunks, embed query, find topK by cosine sim
     const chunks = splitDocumentIntoChunks(mergedText, MAX_TOKENS_PER_CHUNK);
+    console.log(`[askOnHandler] Split into ${chunks.length} chunks`);
+
+    const embedStart = Date.now();
     const chunkEmbeddings = [];
-    for (const c of chunks) {
+    for (let i = 0; i < chunks.length; i++) {
+      const c = chunks[i];
       try {
+        console.log(`[askOnHandler] Embedding chunk ${i + 1}/${chunks.length}...`);
         chunkEmbeddings.push(await embedOne(c));
       } catch (e) {
         console.warn('Embedding chunk failed, skipping chunk:', e.message);
         chunkEmbeddings.push(null);
       }
     }
+    console.log(`[askOnHandler] All chunks embedded in ${Date.now() - embedStart}ms`);
 
+    console.log('[askOnHandler] Embedding question...');
+    const qEmbStart = Date.now();
     const qEmb = await embedOne(question);
+    console.log(`[askOnHandler] Question embedded in ${Date.now() - qEmbStart}ms`);
 
     const scored = [];
     for (let i = 0; i < chunks.length; i++) {
@@ -315,6 +329,8 @@ ipcMain.handle('ask:on:question', async (_event, { question, token, scope, topK 
     const top = scored.slice(0, topK).map((s) => chunks[s.index]);
     const context = top.join('\n---\n');
 
+    console.log('[askOnHandler] Calling Granite...');
+    const graniteStart = Date.now();
     const prompt = `Answer the question using ONLY this context. Be concise. Do not repeat words or syllables.
 
 CONTEXT:
@@ -325,6 +341,9 @@ QUESTION: ${question}
 Answer:`;
 
     const answer = await askGranite(prompt);
+    console.log(`[askOnHandler] Granite responded in ${Date.now() - graniteStart}ms`);
+    console.log(`[askOnHandler] TOTAL TIME: ${Date.now() - startTime}ms`);
+    
     return {
       success: true,
       answer,
